@@ -1,0 +1,26 @@
+{
+  "name": "Yihu Construction - Document Generator",
+  "short_name": "Yihu Docs",
+  "description": "Invoice, Quotation & Receipt Generator for Yihu Construction SMC Limited",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a3a2a",
+  "theme_color": "#1a3a2a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "smc logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "smc logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "screenshots": []
+}

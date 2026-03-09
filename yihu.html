@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+  <meta name="theme-color" content="#2d7d8a"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Yihu Docs"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="icon" href="smc_logo.png" type="image/png"/>
+  <link rel="apple-touch-icon" href="smc_logo.png"/>
+  <title>Yihu Construction - Document Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, query, orderBy, deleteDoc, doc, getDoc }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC2kEboyk4_p7KBK4rBufcSwJWRORAcT_U",
+      authDomain: "yihu-c345d.firebaseapp.com",
+      projectId: "yihu-c345d",
+      storageBucket: "yihu-c345d.firebasestorage.app",
+      messagingSenderId: "20636558679",
+      appId: "1:20636558679:web:24b997ead2b8abdb734a12"
+    };
+
+    try {
+      const app  = initializeApp(firebaseConfig);
+      const db   = getFirestore(app);
+      const auth = getAuth(app);
+
+      window._db           = db;
+      window._auth         = auth;
+      window._fbCollection = collection;
+      window._fbAddDoc     = addDoc;
+      window._fbGetDocs    = getDocs;
+      window._fbQuery      = query;
+      window._fbOrderBy    = orderBy;
+      window._fbDeleteDoc  = deleteDoc;
+      window._fbDoc        = doc;
+      window._fbGetDoc     = getDoc;
+      window._fbSignIn     = (email, pw) => signInWithEmailAndPassword(auth, email, pw);
+      window._fbSignOut    = () => signOut(auth);
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          window._currentUser   = user;
+          window._firebaseReady = true;
+          document.dispatchEvent(new CustomEvent('authReady', { detail: { user } }));
+        } else {
+          window._currentUser   = null;
+          window._firebaseReady = false;
+          document.dispatchEvent(new Event('authLoggedOut'));
+        }
+      });
+    } catch(e) {
+      console.warn('System init failed:', e.message);
+      document.dispatchEvent(new Event('authLoggedOut'));
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Open+Sans:wght@300;400;600;700&display=swap');
+    :root {
+      --teal: #2d7d8a;
+      --teal-dark: #1e5f69;
+      --teal-light: #e0f2f5;
+      --charcoal: #3a3f44;
+      --charcoal-dark: #2b2e32;
+      --bg: #eef4f5;
+      --panel: #ffffff;
+      --border: #cde0e3;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; background: var(--bg); color: var(--charcoal-dark); font-size: 13px; font-family: 'Open Sans', sans-serif; }
+
+    /* LOGIN */
+    #loginPage { display: none; position: fixed; inset: 0; z-index: 9999; background: linear-gradient(135deg, var(--charcoal-dark) 0%, var(--charcoal) 50%, var(--teal-dark) 100%); align-items: center; justify-content: center; padding: 20px; }
+    #loginPage.show { display: flex; }
+    .login-card { background: white; border-radius: 20px; padding: 36px 32px; width: 100%; max-width: 400px; box-shadow: 0 24px 60px rgba(0,0,0,0.4); animation: slideUp 0.4s ease; }
+    @keyframes slideUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+    .login-logo-wrap { text-align: center; margin-bottom: 24px; }
+    .login-logo-wrap img { width: 72px; height: 72px; object-fit: contain; border-radius: 14px; background: var(--teal-light); padding: 8px; border: 2px solid var(--border); }
+    .login-logo-fallback { width: 72px; height: 72px; border-radius: 14px; background: linear-gradient(135deg, var(--teal-dark), var(--teal)); display: inline-flex; align-items: center; justify-content: center; font-family: 'Montserrat', sans-serif; font-weight: 900; color: white; font-size: 11px; text-align: center; line-height: 1.3; }
+    .login-title { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 18px; color: var(--charcoal-dark); text-align: center; margin: 0 0 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .login-sub { text-align: center; font-size: 11px; color: #888; margin: 0 0 28px; letter-spacing: 0.5px; }
+    .login-lbl { display: block; font-size: 11px; font-weight: 700; color: #5a6e70; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .login-input { width: 100%; padding: 12px 14px; border-radius: 9px; border: 1.5px solid #c8dfe3; font-size: 14px; background: #f7fbfc; outline: none; margin-bottom: 16px; font-family: 'Open Sans', sans-serif; transition: 0.2s; }
+    .login-input:focus { border-color: var(--teal); background: white; box-shadow: 0 0 0 3px rgba(45,125,138,0.12); }
+    .login-btn { width: 100%; padding: 13px; border-radius: 10px; border: 0; background: linear-gradient(135deg, var(--teal), var(--teal-dark)); color: white; font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 14px; cursor: pointer; letter-spacing: 0.5px; transition: all 0.2s; margin-top: 4px; }
+    .login-btn:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(45,125,138,0.35); }
+    .login-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .login-err { background: #fee2e2; color: #991b1b; border-radius: 8px; padding: 10px 14px; font-size: 12px; font-weight: 600; margin-bottom: 14px; display: none; border-left: 3px solid #ef4444; }
+    .login-err.show { display: block; }
+    .login-footer { text-align: center; margin-top: 22px; font-size: 10px; color: #aaa; letter-spacing: 0.3px; }
+    .login-footer span { color: var(--teal); font-weight: 700; }
+
+    /* TOPBAR */
+    .topbar { background: linear-gradient(135deg, var(--charcoal-dark) 0%, var(--charcoal) 55%, var(--teal-dark) 100%); color: white; height: 58px; display: flex; align-items: center; padding: 0 15px; position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+    .hamburger { font-size: 24px; cursor: pointer; margin-right: 12px; }
+    .topbar-logo { width: 36px; height: 36px; border-radius: 6px; margin-right: 10px; object-fit: contain; background: rgba(255,255,255,0.1); padding: 2px; }
+    .topbar-text { flex: 1; }
+    .topbar-title { font-size: 14px; font-weight: 800; letter-spacing: 0.8px; font-family: 'Montserrat', sans-serif; }
+    .topbar-sub { font-size: 9px; opacity: 0.6; letter-spacing: 1.5px; text-transform: uppercase; }
+    .topbar-user { font-size: 9px; color: #5ab8c4; font-weight: 700; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+
+    /* DRAWER */
+    .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; opacity: 0; pointer-events: none; transition: 0.3s; }
+    .drawer-overlay.active { opacity: 1; pointer-events: all; }
+    .drawer { position: fixed; top: 0; left: -290px; width: 290px; height: 100%; background: white; z-index: 101; transition: 0.3s; box-shadow: 4px 0 16px rgba(0,0,0,0.15); display: flex; flex-direction: column; }
+    .drawer.active { left: 0; }
+    .drawer-header { padding: 20px; background: linear-gradient(135deg, var(--charcoal-dark), var(--teal-dark)); color: white; }
+    .drawer-header img { width: 48px; height: 48px; object-fit: contain; margin-bottom: 8px; display: block; }
+    .drawer-header h3 { margin: 0; font-family: 'Montserrat', sans-serif; font-size: 14px; font-weight: 800; }
+    .drawer-header p { margin: 2px 0 0; font-size: 10px; opacity: 0.65; }
+    .drawer-menu { padding: 8px 0; flex: 1; overflow-y: auto; }
+    .drawer-item { padding: 14px 20px; display: flex; align-items: center; gap: 12px; color: var(--charcoal-dark); font-size: 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s; }
+    .drawer-item:hover { background: var(--teal-light); color: var(--teal-dark); }
+    .drawer-item .di { font-size: 18px; }
+    .drawer-item.danger { color: #ef4444; }
+    .drawer-item.danger:hover { background: #fee2e2; }
+    .drawer-user-info { padding: 12px 20px 8px; background: var(--teal-light); font-size: 11px; color: var(--teal-dark); font-weight: 600; border-bottom: 1px solid var(--border); }
+
+    /* MOBILE TABS */
+    .mobile-tabs { display: none; background: white; border-bottom: 2px solid var(--teal); position: sticky; top: 58px; z-index: 40; }
+    .tab { flex: 1; text-align: center; padding: 11px 0; font-weight: 700; color: #94a3b8; cursor: pointer; border-bottom: 3px solid transparent; font-family: 'Montserrat', sans-serif; font-size: 11px; letter-spacing: 0.5px; }
+    .tab.active { color: var(--teal); border-bottom: 3px solid var(--teal); }
+
+    /* LAYOUT */
+    .wrap { max-width: 1440px; margin: 0 auto; padding: 20px; display: flex; gap: 22px; align-items: flex-start; }
+    .editor-section { width: 390px; background: var(--panel); border-radius: 14px; padding: 20px; box-shadow: 0 4px 16px rgba(45,125,138,0.1); flex-shrink: 0; border-top: 5px solid var(--teal); }
+    .preview-section { flex: 1; background: #c0d8dc; border-radius: 14px; display: flex; justify-content: center; overflow: hidden; padding: 22px 10px; min-height: 600px; }
+
+    @media (max-width: 860px) {
+      .wrap { padding: 0; flex-direction: column; gap: 0; }
+      .mobile-tabs { display: flex; width: 100%; }
+      .editor-section { width: 100%; border-radius: 0; box-shadow: none; padding: 15px; }
+      .preview-section { width: 100%; padding: 10px 0; display: none; background: #b0cdd2; min-height: calc(100vh - 105px); }
+    }
+
+    /* FORM */
+    .sec-hd { font-family: 'Montserrat', sans-serif; font-size: 10px; font-weight: 800; color: var(--teal); text-transform: uppercase; letter-spacing: 1.2px; margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--teal-light); }
+    .fg { margin-bottom: 12px; }
+    label { display: block; font-size: 11px; font-weight: 700; color: #5a6e70; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+    input, select, textarea { width: 100%; padding: 9px 12px; border-radius: 7px; border: 1.5px solid #c8dfe3; font-size: 13px; background: #f7fbfc; outline: none; transition: 0.2s; font-family: 'Open Sans', sans-serif; }
+    input:focus, select:focus, textarea:focus { border-color: var(--teal); background: white; box-shadow: 0 0 0 3px rgba(45,125,138,0.1); }
+    .frow { display: flex; gap: 10px; } .frow > div { flex: 1; }
+    .btn { padding: 10px 14px; border-radius: 8px; border: 0; font-weight: 700; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; font-family: 'Montserrat', sans-serif; letter-spacing: 0.3px; transition: all 0.2s; }
+    .btn-t { background: linear-gradient(135deg, var(--teal), var(--teal-dark)); color: white; }
+    .btn-t:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(45,125,138,0.3); }
+    .btn-c { background: linear-gradient(135deg, var(--charcoal), var(--charcoal-dark)); color: white; }
+    .btn-o { background: transparent; border: 2px solid var(--teal); color: var(--teal); }
+    .docno-badge { background: var(--teal-light); border: 1.5px dashed var(--teal); border-radius: 8px; padding: 8px 12px; font-family: 'Montserrat', sans-serif; font-weight: 800; color: var(--teal-dark); font-size: 13px; text-align: center; }
+    .ilist { margin-top: 8px; max-height: 150px; overflow-y: auto; background: white; border: 1.5px solid var(--border); border-radius: 8px; }
+    .irow { padding: 8px 12px; border-bottom: 1px solid #eef4f5; display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+    .irow:last-child { border-bottom: none; }
+    .delbtn { color: #ef4444; font-weight: bold; cursor: pointer; padding: 4px 7px; border-radius: 4px; }
+    .delbtn:hover { background: #fee2e2; }
+    .fbs { font-size: 10px; text-align: center; padding: 5px 10px; border-radius: 6px; margin-bottom: 12px; font-weight: 600; font-family: 'Montserrat', sans-serif; }
+    .fbs.ok { background: #d1fae5; color: #065f46; }
+    .fbs.err { background: #fee2e2; color: #991b1b; }
+    .fbs.pend { background: #fef3c7; color: #92400e; }
+
+    /* DOWNLOAD OVERLAY */
+    #dlOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 500; align-items: center; justify-content: center; flex-direction: column; gap: 14px; }
+    #dlOverlay.show { display: flex; }
+    #dlOverlay .dl-msg { color: white; font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 0.5px; }
+    .spinner { width: 42px; height: 42px; border: 4px solid rgba(255,255,255,0.25); border-top-color: #5ab8c4; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* DOCUMENT */
+    .doc-wrapper { transform-origin: top center; transition: 0.15s; }
+    .doc { width: 794px; height: 1123px; background: #fff; padding: 0; font-size: 11.5px; color: #222; line-height: 1.45; display: flex; flex-direction: column; font-family: 'Open Sans','Helvetica Neue',Helvetica,Arial,sans-serif; box-shadow: 0 12px 40px rgba(0,0,0,0.18); overflow: hidden; position: relative; }
+    .doc-wm { position: absolute; inset: 0; background: url('smc_logo.png') no-repeat center 52% / 360px; opacity: 0.04; z-index: 1; pointer-events: none; }
+    .doc-inner { position: relative; z-index: 10; display: flex; flex-direction: column; height: 100%; }
+    .dhband { background: linear-gradient(135deg, var(--charcoal-dark) 0%, var(--charcoal) 55%, var(--teal-dark) 100%); padding: 22px 50px 18px; display: flex; justify-content: space-between; align-items: center; }
+    .dhband-co-name { color: white; font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 17px; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.25; }
+    .dhband-co-detail { color: rgba(255,255,255,0.6); font-size: 9.5px; margin-top: 3px; line-height: 1.8; }
+    .dhband-logo { width: 82px; height: 82px; background: rgba(255,255,255,0.12); border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 1.5px solid rgba(255,255,255,0.2); flex-shrink: 0; overflow: hidden; }
+    .dhband-logo img { width: 70px; height: 70px; object-fit: contain; }
+    .teal-bar { height: 5px; background: linear-gradient(90deg, var(--teal) 0%, #5ab8c4 50%, var(--teal) 100%); }
+    .dbody { padding: 22px 50px 0; flex: 1; display: flex; flex-direction: column; }
+    .dtitle-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+    .dtitle { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 30px; color: var(--teal-dark); text-transform: uppercase; letter-spacing: 1px; line-height: 1; }
+    .dsubtitle { font-family: 'Montserrat', sans-serif; font-size: 12px; font-weight: 700; color: #777; margin-top: 5px; }
+    .dmeta { text-align: right; }
+    .dmeta-row { display: flex; gap: 14px; justify-content: flex-end; align-items: center; margin-bottom: 5px; }
+    .dmeta-lbl { font-size: 9.5px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.8px; }
+    .dmeta-val { font-size: 12px; font-weight: 800; color: var(--charcoal-dark); font-family: 'Montserrat', sans-serif; }
+    .ddiv { height: 1.5px; background: linear-gradient(90deg, var(--teal), rgba(45,125,138,0.08)); margin-bottom: 14px; }
+    .dbt { margin-bottom: 14px; }
+    .dbt-lbl { font-size: 9px; font-weight: 800; color: var(--teal); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 3px; }
+    .dbt-name { font-family: 'Montserrat', sans-serif; font-size: 15px; font-weight: 900; color: var(--charcoal-dark); text-transform: uppercase; }
+    .dbt-sub { font-size: 11px; color: #666; font-style: italic; margin-top: 2px; }
+    .mtable { width: 100%; border-collapse: collapse; }
+    .mtable thead tr { background: var(--charcoal-dark); }
+    .mtable th { color: white; padding: 9px 11px; text-align: left; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; font-family: 'Montserrat', sans-serif; border: none; }
+    .mtable th.thteal { background: var(--teal-dark); }
+    .mtable td { padding: 9px 11px; font-size: 11.5px; border-bottom: 1px solid #e8f0f1; vertical-align: middle; }
+    .mtable tbody tr:nth-child(even) td { background: #f5fbfc; }
+    .mtable tbody tr:nth-child(odd) td { background: #fff; }
+    .mtable .amtcell { font-weight: 700; color: var(--charcoal-dark); font-family: 'Montserrat', sans-serif; }
+    .words-row td { background: var(--teal-light) !important; border-top: 2px solid var(--teal); font-size: 10.5px; font-style: italic; color: var(--teal-dark); font-weight: 600; padding: 7px 11px; }
+    .c { text-align: center; } .r { text-align: right; }
+    .dbottom { display: flex; gap: 18px; margin-top: 16px; }
+    .dleft { width: 52%; display: flex; flex-direction: column; gap: 12px; }
+    .bank-lbl { font-size: 9px; font-weight: 800; color: var(--teal); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 4px; font-family: 'Montserrat', sans-serif; }
+    .bank-blk { background: #f5fbfc; border-left: 3px solid var(--teal); padding: 8px 11px; font-size: 11px; line-height: 1.85; color: #333; }
+    .dright { flex: 1; padding-top: 4px; }
+    .stbl { width: 100%; border-collapse: collapse; }
+    .stbl td { padding: 6px 4px; font-size: 12px; border-bottom: 1px solid #e8f0f1; }
+    .stbl .slbl { color: #666; }
+    .stbl .sval { text-align: right; font-weight: 700; font-family: 'Montserrat', sans-serif; color: var(--charcoal-dark); }
+    .stbl .stot td { border-top: 2.5px solid var(--teal-dark); border-bottom: none; padding-top: 10px; }
+    .stbl .stot .slbl { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 14px; color: var(--teal-dark); }
+    .stbl .stot .sval { font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 14px; color: var(--teal-dark); }
+    .dfooter { margin-top: auto; display: flex; flex-direction: column; align-items: center; padding-top: 10px; }
+    .qrwrap { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .qrwrap img { width: 74px; height: 74px; border: 1.5px solid var(--border); padding: 3px; border-radius: 7px; background: white; display: block; }
+    .qr-info { font-size: 9px; color: #888; max-width: 160px; line-height: 1.6; }
+    .dfstrip { background: linear-gradient(135deg, var(--charcoal-dark) 0%, var(--charcoal) 55%, var(--teal-dark) 100%); color: white; font-size: 10px; text-align: center; padding: 11px 50px; align-self: stretch; letter-spacing: 0.5px; font-weight: 600; }
+    .dfstrip span { color: #5ab8c4; font-weight: 700; }
+
+    /* MODALS */
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+    .mc { background: white; width: 100%; max-width: 500px; border-radius: 14px; padding: 24px; max-height: 88vh; overflow-y: auto; border-top: 5px solid var(--teal); }
+    .mhd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #eee; }
+    .mhd h3 { margin: 0; color: var(--teal-dark); font-family: 'Montserrat', sans-serif; font-size: 16px; }
+    .mx { cursor: pointer; color: #ef4444; font-size: 20px; font-weight: bold; }
+    .hcard { border: 1.5px solid var(--border); padding: 13px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; background: #f8fbfc; }
+    .hbadge { display: inline-block; padding: 2px 9px; border-radius: 4px; font-size: 9px; font-weight: 800; background: var(--teal-dark); color: white; font-family: 'Montserrat', sans-serif; letter-spacing: 0.5px; margin-bottom: 4px; }
+
+    /* PWA BANNER */
+    .ibanner { display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, var(--charcoal-dark), var(--teal-dark)); color: white; border-radius: 14px; padding: 14px 18px; box-shadow: 0 8px 28px rgba(0,0,0,0.3); z-index: 999; width: 92%; max-width: 420px; }
+    .ibanner.show { display: flex; align-items: center; gap: 12px; }
+    .ibanner .icon { font-size: 28px; flex-shrink: 0; }
+    .ibanner .txt { flex: 1; font-size: 12.5px; }
+    .ibanner .txt strong { display: block; font-family: 'Montserrat', sans-serif; font-size: 14px; margin-bottom: 2px; }
+    .ibtn { background: var(--teal); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; font-family: 'Montserrat', sans-serif; font-size: 12px; white-space: nowrap; }
+    .xbtn { background: transparent; border: none; color: rgba(255,255,255,0.5); cursor: pointer; font-size: 22px; padding: 0; }
+
+    @media print {
+      body { background: white; }
+      .topbar,.drawer-overlay,.drawer,.mobile-tabs,.editor-section,.ibanner { display: none !important; }
+      .preview-section { display: block !important; padding: 0; width: 100%; background: white; }
+      .doc-wrapper { transform: none !important; height: auto !important; }
+      .doc { box-shadow: none; width: 100%; height: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="show">
+  <div class="login-card">
+    <div class="login-logo-wrap">
+      <img src="smc_logo.png" alt="Yihu Logo"
+        onerror="this.outerHTML='<div class=&quot;login-logo-fallback&quot;>YIHU<br>CONST.</div>'">
+    </div>
+    <h2 class="login-title">Yihu Construction</h2>
+    <p class="login-sub">SMC LIMITED &nbsp;·&nbsp; Admin Portal</p>
+    <div class="login-err" id="loginErr"></div>
+    <label class="login-lbl" for="loginEmail">Email Address</label>
+    <input class="login-input" id="loginEmail" type="email"
+      placeholder="admin@yihuconstruction.com" autocomplete="username"/>
+    <label class="login-lbl" for="loginPwd">Password</label>
+    <input class="login-input" id="loginPwd" type="password"
+      placeholder="••••••••" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">
+      Sign In to Dashboard
+    </button>
+    <div class="login-footer">
+      Authorized personnel only &nbsp;·&nbsp;
+      <span>Yihu Construction SMC Ltd</span>
+    </div>
+  </div>
+</div>
+
+<!-- DOWNLOAD OVERLAY -->
+<div id="dlOverlay">
+  <div class="spinner"></div>
+  <div class="dl-msg" id="dlMsg">Preparing document…</div>
+</div>
+
+<!-- PWA BANNER -->
+<div class="ibanner" id="ib">
+  <div class="icon">🏗️</div>
+  <div class="txt"><strong>Install Yihu Docs</strong>Add to home screen for fast access</div>
+  <button class="ibtn" onclick="installPWA()">Install</button>
+  <button class="xbtn" onclick="document.getElementById('ib').classList.remove('show')">✕</button>
+</div>
+
+<!-- TOPBAR -->
+<nav class="topbar">
+  <div class="hamburger" onclick="toggleDrawer()">☰</div>
+  <img src="smc_logo.png" class="topbar-logo" alt="" onerror="this.style.display='none'">
+  <div class="topbar-text">
+    <div class="topbar-title">YIHU CONSTRUCTION</div>
+    <div class="topbar-sub">SMC Limited · Document Generator</div>
+  </div>
+  <div id="topbarUser" class="topbar-user"></div>
+  <div style="font-size:20px;cursor:pointer;color:#5ab8c4;margin-left:10px"
+    onclick="document.getElementById('previewBtn').click()">↻</div>
+</nav>
+
+<!-- MOBILE TABS -->
+<div class="mobile-tabs">
+  <div class="tab active" id="tab-edit" onclick="switchTab('edit')">✏️ Editor</div>
+  <div class="tab" id="tab-preview" onclick="switchTab('preview')">👁️ Preview</div>
+</div>
+
+<!-- DRAWER -->
+<div class="drawer-overlay" id="doverlay" onclick="toggleDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <img src="smc_logo.png" alt="" onerror="this.style.display='none'">
+    <h3>YIHU CONSTRUCTION</h3>
+    <p>SMC Limited · Document System</p>
+  </div>
+  <div class="drawer-user-info" id="drawerUserInfo">Signed in as —</div>
+  <div class="drawer-menu">
+    <div class="drawer-item" onclick="closeDrawer();openHistory()"><span class="di">☁️</span> Cloud History</div>
+    <div class="drawer-item" onclick="closeDrawer();saveToCloud()"><span class="di">💾</span> Save Document</div>
+    <div class="drawer-item" onclick="closeDrawer();dlAction('pdf')"><span class="di">📄</span> Download PDF</div>
+    <div class="drawer-item" onclick="closeDrawer();dlAction('img')"><span class="di">🖼️</span> Download Image</div>
+    <div class="drawer-item" onclick="closeDrawer();window.print()"><span class="di">🖨️</span> Print</div>
+    <div class="drawer-item danger" onclick="closeDrawer();doSignOut()"><span class="di">🚪</span> Sign Out</div>
+  </div>
+</div>
+
+<!-- HISTORY MODAL -->
+<div class="modal" id="histModal">
+  <div class="mc">
+    <div class="mhd">
+      <h3>☁️ Saved Documents</h3>
+      <span class="mx" onclick="document.getElementById('histModal').style.display='none'">✕</span>
+    </div>
+    <div id="histList"><div style="text-align:center;padding:30px;color:#888">Loading from cloud...</div></div>
+  </div>
+</div>
+
+<!-- MAIN WRAP -->
+<div class="wrap">
+  <div class="editor-section" id="editorView">
+    <div id="fbs" class="fbs pend">⏳ Connecting to system...</div>
+
+    <div class="sec-hd">📄 Document</div>
+    <div class="frow fg">
+      <div>
+        <label>Type</label>
+        <select id="docType" onchange="generateDocNumber()">
+          <option value="INVOICE">Invoice</option>
+          <option value="QUOTATION">Quotation</option>
+          <option value="RECEIPT">Receipt</option>
+        </select>
+      </div>
+      <div><label>Auto Number</label><div class="docno-badge" id="docNo">YHC-INV-0001</div></div>
+    </div>
+    <div class="fg"><label>Date</label><input id="invDate" type="date"></div>
+
+    <div class="sec-hd">👤 Client</div>
+    <div class="fg"><label>Client / Company Name</label><input id="clientName" type="text" placeholder="e.g. Kampala City Council Authority"></div>
+    <div class="fg"><label>Subject / Reference</label><input id="subject" type="text" placeholder="RE: Construction of..."></div>
+
+    <div class="sec-hd">📦 Line Items</div>
+    <div class="fg" style="background:#f5fbfc;padding:12px;border-radius:10px;border:1.5px solid var(--border)">
+      <div class="fg"><label>Description</label><input id="iDesc" type="text" placeholder="e.g. Foundation Works Phase 1"></div>
+      <div class="frow" style="margin-bottom:10px">
+        <div><label>Qty</label><input id="iQty" type="number" value="1" step="any" min="0"></div>
+        <div><label>Unit Rate (UGX)</label><input id="iPrice" type="number" value="0" step="any" min="0"></div>
+      </div>
+      <button id="addBtn" class="btn btn-t">＋ Add Line Item</button>
+    </div>
+    <div id="iTracker" class="ilist">
+      <div style="padding:10px 12px;color:#94a3b8;font-size:11px;text-align:center">No items added yet</div>
+    </div>
+
+    <div class="sec-hd">💰 Payment</div>
+    <div class="fg"><label>Amount Paid (UGX) — leave 0 for Quotations</label><input id="amtPaid" type="number" value="0" step="any" min="0"></div>
+
+    <div class="sec-hd">⚡ Actions</div>
+    <div class="frow" style="margin-bottom:8px">
+      <button class="btn btn-t" onclick="saveToCloud()">☁️ Save</button>
+      <button class="btn btn-c" onclick="dlAction('pdf')">📄 PDF</button>
+    </div>
+    <button class="btn btn-o" onclick="dlAction('img')">🖼️ Download Image</button>
+    <button id="previewBtn" style="display:none"></button>
+  </div>
+
+  <div class="preview-section" id="previewView">
+    <div class="doc-wrapper" id="docWrap">
+      <div id="doc" class="doc">
+        <div style="text-align:center;margin-top:380px;color:#aaa;font-family:'Montserrat',sans-serif">
+          Loading preview...
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// PWA install — FIRST before anything else
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('ib').classList.add('show');
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('ib').classList.remove('show');
+  deferredPrompt = null;
+});
+window.installPWA = async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt = null;
+    document.getElementById('ib').classList.remove('show');
+  }
+};
+
+// Auth state handlers
+document.addEventListener('authReady', (e) => {
+  const user = e.detail.user;
+  document.getElementById('loginPage').classList.remove('show');
+  const email = user.email || 'Admin';
+  document.getElementById('topbarUser').textContent = email;
+  document.getElementById('drawerUserInfo').textContent = '👤 ' + email;
+  const el = document.getElementById('fbs');
+  el.className = 'fbs ok';
+  el.textContent = '✅ System ready — cloud sync active';
+  generateDocNumber();
+});
+
+document.addEventListener('authLoggedOut', () => {
+  document.getElementById('loginPage').classList.add('show');
+  document.getElementById('topbarUser').textContent = '';
+  const el = document.getElementById('fbs');
+  el.className = 'fbs err';
+  el.textContent = '🔒 Not signed in';
+});
+
+window.doLogin = async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pwd   = document.getElementById('loginPwd').value;
+  const errEl = document.getElementById('loginErr');
+  const btn   = document.getElementById('loginBtn');
+
+  errEl.classList.remove('show');
+
+  if (!email || !pwd) {
+    errEl.textContent = 'Please enter your email and password.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  try {
+    await window._fbSignIn(email, pwd);
+  } catch (e) {
+    console.error('Login error:', e.code, e.message);
+    let msg = '';
+    switch(e.code) {
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        msg = '❌ Incorrect email or password.'; break;
+      case 'auth/invalid-email':
+        msg = '❌ Invalid email format.'; break;
+      case 'auth/user-disabled':
+        msg = '❌ This account has been disabled.'; break;
+      case 'auth/too-many-requests':
+        msg = '⏳ Too many attempts. Wait a moment and try again.'; break;
+      case 'auth/network-request-failed':
+        msg = '🌐 Network error. Check your internet connection.'; break;
+      case 'auth/operation-not-allowed':
+        msg = '⚙️ Email/Password sign-in is not enabled. Contact admin.'; break;
+      case 'auth/configuration-not-found':
+        msg = '⚙️ Auth not configured. Enable Email/Password sign-in.'; break;
+      default:
+        msg = `❌ (${e.code}): ${e.message}`;
+    }
+    errEl.textContent = msg;
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign In to Dashboard';
+  }
+};
+
+window.doSignOut = async () => {
+  if (!confirm('Sign out of Yihu Construction Admin?')) return;
+  try { await window._fbSignOut(); } catch(e) { console.warn(e); }
+};
+
+// Helpers
+let items  = [];
+let docNum = 'YHC-INV-0001';
+const R = v => Math.round((v + Number.EPSILON) * 100) / 100;
+
+function fmtFull(n) {
+  if (!n && n !== 0) return '0';
+  return Number(n).toLocaleString('en-UG');
+}
+
+function amountWords(n) {
+  if (!n || n === 0) return 'Zero Uganda Shillings Only';
+  const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten',
+    'Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function b1000(x) {
+    if (x < 20) return ones[x];
+    if (x < 100) return tens[Math.floor(x/10)] + (x % 10 ? ' ' + ones[x % 10] : '');
+    return ones[Math.floor(x/100)] + ' Hundred' + (x % 100 ? ' ' + b1000(x % 100) : '');
+  }
+  let r = '', x = Math.floor(n);
+  const bn = Math.floor(x/1e9), mn = Math.floor((x%1e9)/1e6),
+        th = Math.floor((x%1e6)/1e3), rm = x % 1e3;
+  if (bn) r += b1000(bn) + ' Billion ';
+  if (mn) r += b1000(mn) + ' Million ';
+  if (th) r += b1000(th) + ' Thousand ';
+  if (rm) r += b1000(rm) + ' ';
+  return r.trim() + ' Uganda Shillings Only';
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return isNaN(d) ? iso : d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+async function generateDocNumber() {
+  const t   = document.getElementById('docType').value;
+  const pfx = t === 'INVOICE' ? 'YHC-INV' : t === 'QUOTATION' ? 'YHC-QT' : 'YHC-RCP';
+  let n = 1;
+  try {
+    if (window._firebaseReady && window._db) {
+      const snap = await window._fbGetDocs(
+        window._fbQuery(window._fbCollection(window._db,'documents'), window._fbOrderBy('createdAt','desc'))
+      );
+      n = snap.docs.filter(d => d.data().type === t).length + 1;
+    }
+  } catch(e) { n = Math.floor(Date.now()/1000) % 9000 + 1000; }
+  docNum = `${pfx}-${String(n).padStart(4,'0')}`;
+  document.getElementById('docNo').textContent = docNum;
+  document.getElementById('previewBtn').click();
+}
+
+window.saveToCloud = async () => {
+  if (!window._firebaseReady) { alert('⚠️ Not signed in.'); return; }
+  const total = items.reduce((s, i) => R(s + i.total), 0);
+  const data  = {
+    type:      document.getElementById('docType').value,
+    docNumber: docNum,
+    date:      document.getElementById('invDate').value,
+    client:    document.getElementById('clientName').value || '',
+    subject:   document.getElementById('subject').value || '',
+    paid:      parseFloat(document.getElementById('amtPaid').value) || 0,
+    items:     JSON.parse(JSON.stringify(items)),
+    total,
+    savedBy:   window._currentUser ? window._currentUser.email : 'unknown',
+    createdAt: new Date().toISOString()
+  };
+  try {
+    await window._fbAddDoc(window._fbCollection(window._db,'documents'), data);
+    alert(`✅ ${data.type} ${docNum} saved successfully!`);
+    generateDocNumber();
+  } catch(e) { alert('Save failed: ' + e.message); }
+};
+
+window.openHistory = async () => {
+  document.getElementById('histModal').style.display = 'flex';
+  const list = document.getElementById('histList');
+  if (!window._firebaseReady) {
+    list.innerHTML = '<p style="text-align:center;color:#991b1b;padding:20px">Not signed in.</p>';
+    return;
+  }
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:#888">Loading...</div>';
+  try {
+    const snap = await window._fbGetDocs(
+      window._fbQuery(window._fbCollection(window._db,'documents'), window._fbOrderBy('createdAt','desc'))
+    );
+    if (snap.empty) {
+      list.innerHTML = '<p style="text-align:center;color:#888;padding:20px">No saved documents yet.</p>';
+      return;
+    }
+    list.innerHTML = snap.docs.map(d => {
+      const h = d.data();
+      return `<div class="hcard">
+        <div>
+          <span class="hbadge">${h.type}</span>
+          <strong style="display:block;font-size:13px;color:var(--teal-dark)">${h.docNumber||'#'}</strong>
+          <span style="font-size:11px;color:#666">${h.client||'—'} · ${fmtDate(h.date)}</span>
+          <div style="font-size:12px;font-weight:800;color:var(--teal-dark);font-family:'Montserrat',sans-serif">
+            UGX ${fmtFull(h.total||0)}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn btn-t" style="padding:6px 12px;font-size:11px;width:auto"
+            onclick="loadDoc('${d.id}')">Load</button>
+          <button style="background:#ef4444;color:white;padding:6px 12px;font-size:11px;
+            width:auto;border:none;border-radius:8px;cursor:pointer;font-family:'Montserrat',sans-serif;font-weight:700"
+            onclick="delDoc('${d.id}')">Del</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { list.innerHTML = `<p style="color:red;padding:10px">Error: ${e.message}</p>`; }
+};
+
+window.loadDoc = async id => {
+  try {
+    const snap = await window._fbGetDoc(window._fbDoc(window._db,'documents',id));
+    if (!snap.exists()) { alert('Document not found.'); return; }
+    const h = snap.data();
+    document.getElementById('docType').value    = h.type    || 'INVOICE';
+    document.getElementById('invDate').value    = h.date    || '';
+    document.getElementById('clientName').value = h.client  || '';
+    document.getElementById('subject').value    = h.subject || '';
+    document.getElementById('amtPaid').value    = h.paid    || 0;
+    items  = h.items      || [];
+    docNum = h.docNumber  || '#';
+    document.getElementById('docNo').textContent = docNum;
+    updateTracker();
+    document.getElementById('histModal').style.display = 'none';
+    switchTab('edit');
+    document.getElementById('previewBtn').click();
+  } catch(e) { alert('Load error: ' + e.message); }
+};
+
+window.delDoc = async id => {
+  if (!confirm('Permanently delete this document?')) return;
+  try {
+    await window._fbDeleteDoc(window._fbDoc(window._db,'documents',id));
+    window.openHistory();
+  } catch(e) { alert('Delete failed: ' + e.message); }
+};
+
+function switchTab(t) {
+  if (window.innerWidth > 860) return;
+  const ev = document.getElementById('editorView');
+  const pv = document.getElementById('previewView');
+  if (t === 'edit') {
+    ev.style.display = 'block'; pv.style.display = 'none';
+    document.getElementById('tab-edit').classList.add('active');
+    document.getElementById('tab-preview').classList.remove('active');
+  } else {
+    ev.style.display = 'none'; pv.style.display = 'block';
+    document.getElementById('tab-preview').classList.add('active');
+    document.getElementById('tab-edit').classList.remove('active');
+    scaleA4();
+  }
+}
+
+function toggleDrawer() {
+  document.getElementById('drawer').classList.toggle('active');
+  document.getElementById('doverlay').classList.toggle('active');
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('active');
+  document.getElementById('doverlay').classList.remove('active');
+}
+
+function scaleA4() {
+  const wrap = document.getElementById('docWrap');
+  const cont = document.getElementById('previewView');
+  if (cont.style.display === 'none') return;
+  const w = cont.clientWidth;
+  if (w < 820 && w > 0) {
+    const s = (w - 14) / 794;
+    wrap.style.transform = `scale(${s})`;
+    wrap.style.height    = `${1123 * s}px`;
+  } else {
+    wrap.style.transform = 'scale(1)';
+    wrap.style.height    = '1123px';
+  }
+}
+window.addEventListener('resize', scaleA4);
+
+document.querySelectorAll('input:not(#iDesc):not(#iQty):not(#iPrice),select').forEach(
+  el => el.addEventListener('input', () => document.getElementById('previewBtn').click())
+);
+
+document.getElementById('addBtn').onclick = () => {
+  const desc = document.getElementById('iDesc').value.trim();
+  if (!desc) return;
+  const qty   = parseFloat(document.getElementById('iQty').value)   || 0;
+  const price = parseFloat(document.getElementById('iPrice').value) || 0;
+  items.push({ desc, qty, price, total: R(qty * price) });
+  document.getElementById('iDesc').value  = '';
+  document.getElementById('iQty').value   = 1;
+  document.getElementById('iPrice').value = 0;
+  updateTracker();
+  document.getElementById('previewBtn').click();
+};
+
+function updateTracker() {
+  const el = document.getElementById('iTracker');
+  if (!items.length) {
+    el.innerHTML = '<div style="padding:10px 12px;color:#94a3b8;font-size:11px;text-align:center">No items added yet</div>';
+    return;
+  }
+  el.innerHTML = items.map((it, i) => `
+    <div class="irow">
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        ${it.desc.substring(0,28)}
+      </span>
+      <span style="color:var(--teal-dark);font-weight:700;margin:0 8px;white-space:nowrap;
+        font-family:'Montserrat',sans-serif">${fmtFull(it.total)}</span>
+      <span class="delbtn" onclick="rmItem(${i})">✕</span>
+    </div>`).join('');
+}
+
+window.rmItem = i => {
+  items.splice(i, 1);
+  updateTracker();
+  document.getElementById('previewBtn').click();
+};
+
+document.getElementById('previewBtn').onclick = () => {
+  const dt       = document.getElementById('docType').value;
+  const total    = items.reduce((s, i) => R(s + i.total), 0);
+  const paid     = parseFloat(document.getElementById('amtPaid').value) || 0;
+  const bal      = R(total - paid);
+  const client   = document.getElementById('clientName').value || 'CLIENT NAME';
+  const subj     = document.getElementById('subject').value || '';
+  const dateIso  = document.getElementById('invDate').value;
+  const dispDate = fmtDate(dateIso);
+  const dueDate  = fmtDate(dateIso
+    ? new Date(new Date(dateIso).getTime() + 30*86400000).toISOString().slice(0,10) : '');
+
+  let title = 'INVOICE', subtitle = 'Invoice', dlbl = 'Invoice Date';
+  if (dt === 'QUOTATION') { title = 'QUOTATION';    subtitle = 'Quotation'; dlbl = 'Quotation Date'; }
+  if (dt === 'RECEIPT')   { title = 'SALES RECEIPT'; subtitle = 'Receipt';   dlbl = 'Receipt Date';   }
+
+  const btlbl = dt === 'RECEIPT' ? 'Received From' : 'Bill To';
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=1e5f69&bgcolor=ffffff&data=${encodeURIComponent(dt+':'+docNum+' Total:UGX '+total)}`;
+
+  const trows = items.length
+    ? items.map((it, i) => `<tr>
+        <td class="c" style="font-weight:700;color:#777;font-size:11px">${i+1}</td>
+        <td>${it.desc}</td>
+        <td class="c">${fmtFull(it.qty)}</td>
+        <td class="r" style="font-family:'Montserrat',sans-serif">${fmtFull(it.price)}</td>
+        <td class="r amtcell">${fmtFull(it.total)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="5" style="text-align:center;padding:20px;color:#aaa;font-style:italic">No items added</td></tr>`;
+
+  const wordRow = items.length ? `<tr class="words-row">
+      <td colspan="4">
+        <span style="font-weight:800;color:var(--charcoal-dark);font-style:normal">Amount in Words: </span>
+        ${amountWords(total)}
+      </td>
+      <td class="r amtcell" style="font-style:normal">= ${fmtFull(total)}</td>
+    </tr>` : '';
+
+  let sumHTML = '';
+  if (dt === 'QUOTATION') {
+    sumHTML = `<table class="stbl">
+      <tr class="stot">
+        <td class="slbl">Total Amount</td>
+        <td class="sval">UGX ${fmtFull(total)}</td>
+      </tr>
+    </table>`;
+  } else {
+    sumHTML = `<table class="stbl">
+      <tr><td class="slbl">Sub Total</td><td class="sval">UGX ${fmtFull(total)}</td></tr>
+      <tr><td class="slbl">Amount Paid</td><td class="sval">UGX ${fmtFull(paid)}</td></tr>
+      <tr class="stot">
+        <td class="slbl">Balance Due</td>
+        <td class="sval">UGX ${fmtFull(bal)}</td>
+      </tr>
+    </table>`;
+  }
+
+  document.getElementById('doc').innerHTML = `
+    <div class="doc-wm"></div>
+    <div class="doc-inner">
+      <div class="dhband">
+        <div>
+          <div class="dhband-co-name">YIHU CONSTRUCTION<br>SMC LIMITED</div>
+          <div class="dhband-co-detail">
+            LOCATED: Nakasajja Village, Mukono District, Gayaza–Kayunga Road, Uganda<br>
+            TEL: 0783933666 &nbsp; ✉️ yihuconstruction88@gmail.com &nbsp;|&nbsp; 🌐 www.yihuconstruction.com
+          </div>
+        </div>
+        <div class="dhband-logo">
+          <img src="smc_logo.png" alt="Logo"
+            onerror="this.outerHTML='<div style=&quot;color:white;font-family:Montserrat,sans-serif;font-weight:900;font-size:10px;text-align:center;line-height:1.4&quot;>YIHU<br>CONST.</div>'">
+        </div>
+      </div>
+      <div class="teal-bar"></div>
+      <div class="dbody">
+        <div class="dtitle-row">
+          <div>
+            <div class="dtitle">${title}</div>
+            <div class="dsubtitle">${subtitle} No: <strong style="color:var(--teal-dark)">${docNum}</strong></div>
+          </div>
+          <div class="dmeta">
+            <div class="dmeta-row">
+              <span class="dmeta-lbl">${dlbl}</span>
+              <span class="dmeta-val">${dispDate}</span>
+            </div>
+            ${dt !== 'RECEIPT' ? `<div class="dmeta-row">
+              <span class="dmeta-lbl">${dt==='QUOTATION'?'Valid Until':'Due Date'}</span>
+              <span class="dmeta-val">${dueDate}</span>
+            </div>` : ''}
+          </div>
+        </div>
+        <div class="ddiv"></div>
+        <div class="dbt">
+          <div class="dbt-lbl">${btlbl}</div>
+          <div class="dbt-name">${client}</div>
+          ${subj ? `<div class="dbt-sub">RE: ${subj}</div>` : ''}
+        </div>
+        <table class="mtable">
+          <thead><tr>
+            <th width="32" class="c">#</th>
+            <th>Description of Works / Goods</th>
+            <th width="65" class="c">Qty</th>
+            <th width="135" class="r thteal">Unit Rate (UGX)</th>
+            <th width="140" class="r thteal">Amount (UGX)</th>
+          </tr></thead>
+          <tbody>${trows}${wordRow}</tbody>
+        </table>
+        <div class="dbottom">
+          <div class="dleft">
+            <div>
+              <div class="bank-lbl">Payment Details</div>
+              <div class="bank-blk">
+                <strong>PEARL BANK</strong><br>
+                Account No: <strong>4020064000075</strong><br>
+                Account Name: YIHU CONSTRUCTION COMPANY SMC LTD<br>
+                TIN: <strong>1046620017</strong>
+              </div>
+            </div>
+          </div>
+          <div class="dright">${sumHTML}</div>
+        </div>
+        <div class="dfooter">
+          <div class="qrwrap">
+            <div>
+              <img src="${qrUrl}" alt="QR" crossorigin="anonymous"
+                onerror="this.style.opacity='0.2'">
+            </div>
+            <div class="qr-info">
+              ${subtitle} No: <strong>${docNum}</strong><br>
+              ${dispDate}<br>
+              <span style="color:var(--teal-dark)">${client}</span>
+            </div>
+          </div>
+          <div class="dfstrip">&nbsp; <span>www.yihuconstruction.com</span> &nbsp;</div>
+        </div>
+      </div>
+    </div>`;
+  scaleA4();
+};
+
+window.dlAction = type => {
+  if (window.innerWidth <= 860) switchTab('preview');
+  const overlay = document.getElementById('dlOverlay');
+  const msg     = document.getElementById('dlMsg');
+  msg.textContent = type === 'pdf' ? 'Generating PDF…' : 'Generating Image…';
+  overlay.classList.add('show');
+  const wrap = document.getElementById('docWrap');
+  const prev = document.getElementById('doc');
+  const orig = wrap.style.transform;
+  wrap.style.transform = 'none';
+  setTimeout(() => {
+    html2canvas(prev, { scale:2.5, useCORS:true, backgroundColor:'#ffffff', logging:false })
+      .then(canvas => {
+        wrap.style.transform = orig;
+        overlay.classList.remove('show');
+        try {
+          const img = canvas.toDataURL('image/jpeg', 0.96);
+          if (type === 'pdf') {
+            const pdf = new jspdf.jsPDF('p','mm','a4');
+            pdf.addImage(img,'JPEG',0,0,210,297);
+            pdf.save(`${docNum}.pdf`);
+          } else {
+            const a = document.createElement('a');
+            a.download = `${docNum}.png`;
+            a.href = img;
+            a.click();
+          }
+        } catch(e) {
+          overlay.classList.remove('show');
+          alert('Download failed — serve over HTTPS or localhost, not file://');
+        }
+      })
+      .catch(e => {
+        wrap.style.transform = orig;
+        overlay.classList.remove('show');
+        alert('Render error: ' + e.message);
+      });
+  }, 400);
+};
+
+// Init
+document.getElementById('invDate').value = new Date().toISOString().slice(0,10);
+window.addEventListener('load', () => {
+  document.getElementById('previewBtn').click();
+  scaleA4();
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(() => console.log('SW registered'))
+      .catch(console.warn);
+  }
+});
+</script>
+</body>
+</html>
